@@ -1,6 +1,4 @@
 # Bitcoin Core Analysis
-<<<<<<< HEAD
-=======
 Bitcoin Core 是比特币的一个参考实现。
 ## 环境配置
 1. git clone https://github.com/bitcoin/bitcoin
@@ -430,4 +428,3 @@ When I don’t know how to cause `bitcoind` to execute a particular code path 
 
 
 
->>>>>>> c4ce7e6 (update docs)
