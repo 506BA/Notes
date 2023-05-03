@@ -1,4 +1,4 @@
-Bitcoin from a Programmer Perspective
+Bitcoin : A Programmer's Perspectiver
 
 # Data Structures
 
@@ -11,5 +11,6 @@ Bitcoin from a Programmer Perspective
 ## Block Chain
 
 # Consensus
+PoW(Proof of Work)
 
 # Network
