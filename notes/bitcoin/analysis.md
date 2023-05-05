@@ -424,7 +424,7 @@ When I don’t know how to cause `bitcoind` to execute a particular code path 
 
 ## 对RPC接口中的创建交易函数进行分析
 
-static RPCHelpMan createrawtransaction()
+  static RPCHelpMan createrawtransaction()
 {
     return RPCHelpMan{
         "createrawtransaction", // 命令名称
