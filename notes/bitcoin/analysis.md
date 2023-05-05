@@ -423,10 +423,9 @@ Sometimes you’d like to attach `gdb` to a running `bitcoind` when a certai
 When I don’t know how to cause `bitcoind` to execute a particular code path that I’m interested in debugging or understanding, I’ve set one of these “spin” landmines and then run the entire functional test suite. When it seems to be hung, if I run `top` and see a `bitcoind` steady at 100% CPU, I attach to it, find the right thread, and then begin debugging. It’s a hack, but this has been helpful many times.
 
 ## 对RPC接口中的创建交易函数进行分析
-
-  static RPCHelpMan createrawtransaction()
-{
-    return RPCHelpMan{
+```
+static RPCHelpMan createrawtransaction(){
+        return RPCHelpMan{
         "createrawtransaction", // 命令名称
 
         "\nCreate a transaction spending the given inputs and creating new outputs.\n"
@@ -474,6 +473,7 @@ lambda函数表达式的返回值类型是UniValue，它是一个类似于JSON�
         },
     };
 }
+```
 这段代码实现了比特币核心钱包中的createrawtransaction命令的处理逻辑。该命令用于创建一个新的未签名的交易，以便后续进行签名和广播。该函数包括以下几个参数，分别为：
 
 inputs：一个数组，包含了输入交易的列表，每个输入交易由一个包含 txid 和 vout 字段的 JSON 对象组成，用于指定该输入交易的交易 ID 和输出索引。
