@@ -422,7 +422,68 @@ Sometimes you’d like to attach `gdb` to a running `bitcoind` when a certai
 
 When I don’t know how to cause `bitcoind` to execute a particular code path that I’m interested in debugging or understanding, I’ve set one of these “spin” landmines and then run the entire functional test suite. When it seems to be hung, if I run `top` and see a `bitcoind` steady at 100% CPU, I attach to it, find the right thread, and then begin debugging. It’s a hack, but this has been helpful many times.
 
+## 对RPC接口中的创建交易函数进行分析
+static RPCHelpMan createrawtransaction()
+{
+    return RPCHelpMan{
+        "createrawtransaction", // 命令名称
 
+        "\nCreate a transaction spending the given inputs and creating new outputs.\n"
+        "Outputs can be addresses or data.\n"
+        "Returns hex-encoded raw transaction.\n"
+        "Note that the transaction's inputs are not signed, and\n"
+        "it is not stored in the wallet or transmitted to the network.\n", // 命令帮助信息
+
+        CreateTxDoc(), // 交易创建文档，用于生成命令帮助信息
+
+        RPCResult{ // 返回结果
+            RPCResult::Type::STR_HEX, // 返回HEX编码的字符串
+            "transaction", // 返回的交易数据
+        },
+
+        RPCExamples{ // 命令使用示例
+            HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"[{\\\"address\\\":0.01}]\"")
+            + HelpExampleCli("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\" \"[{\\\"data\\\":\\\"00010203\\\"}]\"")
+            + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"[{\\\"address\\\":0.01}]\"")
+            + HelpExampleRpc("createrawtransaction", "\"[{\\\"txid\\\":\\\"myid\\\",\\\"vout\\\":0}]\", \"[{\\\"data\\\":\\\"00010203\\\"}]\"")
+        },
+/*
+下面是一个lambda函数，这个lambda函数表达式包含两个参数，分别是self和request。self是RPCHelpMan对象的引用，它表示当前的命令帮助信息；request是JSONRPCRequest对象的引用，它表示当前的JSON-RPC请求。
+
+lambda函数表达式的返回值类型是UniValue，它是一个类似于JSON值的通用值类型，可以表示各种不同类型的数据，包括字符串、数字、数组和对象等。在这里，lambda函数表达式返回一个HEX编码的字符串，表示新的未签名交易。-> UniValue用于指定返回值类型为UniValue。
+
+[&]表示将当前函数作用域内的所有变量都按引用捕获，以便在lambda函数中使用。这样做可以让lambda函数访问当前函数作用域内的变量，从而方便地实现一些逻辑。
+
+总之，这个lambda函数表达式的作用是解析请求中的参数，创建新的未签名交易，并将其编码为HEX字符串返回。
+*/
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
+        {
+            // 解析replaceable参数
+            std::optional<bool> rbf;
+            if (!request.params[3].isNull()) {
+                rbf = request.params[3].get_bool();
+            }
+
+            // 构建新的交易，参数包括输入vin，输出vout及锁定脚本
+            CMutableTransaction rawTx = ConstructTransaction(request.params[0], request.params[1], request.params[2], rbf);
+
+            // 将新交易编码为HEX字符串并返回
+            return EncodeHexTx(CTransaction(rawTx));
+        },
+    };
+}
+这段代码实现了比特币核心钱包中的createrawtransaction命令的处理逻辑。该命令用于创建一个新的未签名的交易，以便后续进行签名和广播。该函数包括以下几个参数，分别为：
+
+inputs：一个数组，包含了输入交易的列表，每个输入交易由一个包含 txid 和 vout 字段的 JSON 对象组成，用于指定该输入交易的交易 ID 和输出索引。
+outputs：一个数组，包含了输出交易的列表，每个输出交易由一个包含 address 或 data 字段的 JSON 对象组成，用于指定该输出交易的地址或数据。
+locktime：交易锁定时间，一个整数值，可选参数。
+replaceable：交易是否可替换，一个布尔值，可选参数。
+
+该代码中的RPCHelpMan是比特币代码中的一个类，用于生成命令帮助信息。JSONRPCRequest是一个包含JSON-RPC请求的对象，通过该对象可以获取到createrawtransaction命令的参数信息。
+
+该代码首先解析传入的参数，包括输入、输出和replaceable参数。然后，它调用ConstructTransaction函数创建一个新的交易，该函数将解析输入、输出和replaceable参数，并使用这些参数构建一个新的CMutableTransaction对象。最后，该代码将新的交易编码为HEX字符串并返回。
+
+需要注意的是，由于createrawtransaction命令所创建的交易是未签名的，因此它不能直接广播到比特币网络中。在签名前，需要通过其他方式将该交易传递给需要签名的节点或者使用钱包软件进行签名。
 
 
 
