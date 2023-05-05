@@ -421,7 +421,7 @@ Sometimes you’d like to attach `gdb` to a running `bitcoind` when a certai
 (This can be conditioned on some state.) This acts as a hardcoded breakpoint. When the `bitcoind` reaches this code, it will infinite loop; when you notice (or guess) that this has happened, you attach to the process with `gdb`, type `i thr` to see which thread is the one you’re likely interested in, then type `thr <id>`, and you should be at this infinite loop. Then type `set var spin=0` and then you can print variables, single-step, set breakpoints and continue, or whatever. You don’t have to have started `bitcoind` in the debugger ahead of time.
 
 When I don’t know how to cause `bitcoind` to execute a particular code path that I’m interested in debugging or understanding, I’ve set one of these “spin” landmines and then run the entire functional test suite. When it seems to be hung, if I run `top` and see a `bitcoind` steady at 100% CPU, I attach to it, find the right thread, and then begin debugging. It’s a hack, but this has been helpful many times.
-
+# RPC Commands
 ## 对RPC接口中的创建交易函数进行分析
 ```
 static RPCHelpMan createrawtransaction(){
@@ -488,6 +488,122 @@ replaceable：交易是否可替换，一个布尔值，可选参数。
 需要注意的是，由于createrawtransaction命令所创建的交易是未签名的，因此它不能直接广播到比特币网络中。在签名前，需要通过其他方式将该交易传递给需要签名的节点或者使用钱包软件进行签名。
 
 
+## BlockchainRPCCommands
+*main* -> *AppInit* -> *AppInitMain* -> *RegisterAllCoreCommands* -> *RegisterBlockchainRPCCommands*
 
 
+```c++
+void RegisterBlockchainRPCCommands(CRPCTable& t)
+{
+    static const CRPCCommand commands[]{
+        {"blockchain", &getblockchaininfo},
+        {"blockchain", &getchaintxstats},
+        {"blockchain", &getblockstats},
+        {"blockchain", &getbestblockhash},
+        {"blockchain", &getblockcount},
+        {"blockchain", &getblock},
+        {"blockchain", &getblockfrompeer},
+        {"blockchain", &getblockhash},
+        {"blockchain", &getblockheader},
+        {"blockchain", &getchaintips},
+        {"blockchain", &getdifficulty},
+        {"blockchain", &getdeploymentinfo},
+        {"blockchain", &gettxout},
+        {"blockchain", &gettxoutsetinfo},
+        {"blockchain", &pruneblockchain},
+        {"blockchain", &verifychain},
+        {"blockchain", &preciousblock},
+        {"blockchain", &scantxoutset},
+        {"blockchain", &scanblocks},
+        {"blockchain", &getblockfilter},
+        {"hidden", &invalidateblock},
+        {"hidden", &reconsiderblock},
+        {"hidden", &waitfornewblock},
+        {"hidden", &waitforblock},
+        {"hidden", &waitforblockheight},
+        {"hidden", &syncwithvalidationinterfacequeue},
+        {"hidden", &dumptxoutset},
+    };
+    for (const auto& c : commands) {
+        t.appendCommand(c.name, &c);
+    }
+}
+```
 
+### getblockheader
+Usage: bitcoin-cli getblockheader [verbose] \<blockhash\>
+如果不设置verbose选项，返回一个序列化，16进制表示的blockheader  
+否则返回一个blockheader 对象
+```c++
+static RPCHelpMan getblockheader()
+{
+    return RPCHelpMan{
+        "getblockheader",
+        "\nIf verbose is false, returns a string that is serialized, hex-encoded data for blockheader 'hash'.\n"
+        "If verbose is true, returns an Object with information about blockheader <hash>.\n",
+        {
+            {"blockhash", RPCArg::Type::STR_HEX, RPCArg::Optional::NO, "The block hash"},
+            {"verbose", RPCArg::Type::BOOL, RPCArg::Default{true}, "true for a json object, false for the hex-encoded data"},
+        },
+        {
+            RPCResult{"for verbose = true",
+                      RPCResult::Type::OBJ,
+                      "",
+                      "",
+                      {
+                          {RPCResult::Type::STR_HEX, "hash", "the block hash (same as provided)"},
+                          {RPCResult::Type::NUM, "confirmations", "The number of confirmations, or -1 if the block is not on the main chain"},
+                          {RPCResult::Type::NUM, "height", "The block height or index"},
+                          {RPCResult::Type::NUM, "version", "The block version"},
+                          {RPCResult::Type::STR_HEX, "versionHex", "The block version formatted in hexadecimal"},
+                          {RPCResult::Type::STR_HEX, "merkleroot", "The merkle root"},
+                          {RPCResult::Type::NUM_TIME, "time", "The block time expressed in " + UNIX_EPOCH_TIME},
+                          {RPCResult::Type::NUM_TIME, "mediantime", "The median block time expressed in " + UNIX_EPOCH_TIME},
+                          {RPCResult::Type::NUM, "nonce", "The nonce"},
+                          {RPCResult::Type::STR_HEX, "bits", "The bits"},
+                          {RPCResult::Type::NUM, "difficulty", "The difficulty"},
+                          {RPCResult::Type::STR_HEX, "chainwork", "Expected number of hashes required to produce the current chain"},
+                          {RPCResult::Type::NUM, "nTx", "The number of transactions in the block"},
+                          {RPCResult::Type::STR_HEX, "previousblockhash", /*optional=*/true, "The hash of the previous block (if available)"},
+                          {RPCResult::Type::STR_HEX, "nextblockhash", /*optional=*/true, "The hash of the next block (if available)"},
+                      }},
+            RPCResult{"for verbose=false",
+                      RPCResult::Type::STR_HEX, "", "A string that is serialized, hex-encoded data for block 'hash'"},
+        },
+        RPCExamples{
+            HelpExampleCli("getblockheader", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\"") + HelpExampleRpc("getblockheader", "\"00000000c937983704a73af28acdec37b049d214adbda81d7e2a3dd146f6ed09\"")},
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue {
+            uint256 hash(ParseHashV(request.params[0], "hash")); // 解析hash 参数
+
+            bool fVerbose = true;
+            if (!request.params[1].isNull())
+                fVerbose = request.params[1].get_bool();
+
+            const CBlockIndex* pblockindex;
+            const CBlockIndex* tip;
+            {
+                ChainstateManager& chainman = EnsureAnyChainman(request.context); // ChainstateManager
+                LOCK(cs_main);
+                pblockindex = chainman.m_blockman.LookupBlockIndex(hash);
+                tip = chainman.ActiveChain().Tip(); // the tip of Chain
+                // 解锁 LockGuard 作用域解锁
+            }
+
+            if (!pblockindex) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
+            }
+
+            if (!fVerbose) {
+                DataStream ssBlock{};
+                ssBlock << pblockindex->GetBlockHeader();
+                std::string strHex = HexStr(ssBlock);
+                return strHex;
+            }
+
+            return blockheaderToJSON(tip, pblockindex);
+        },
+    };
+}
+
+```
+首先将string类型的hash解析为uint256,根据hash值查询BlockIndex(注意查询时要加锁，所以这段代码周围的大括号是必须的)，获取相应的blockindex指针和tip，如果verbose为false则返回16进制的blockheader序列化结果，否则返回Blockheader对象，并且以JOSN格式返回
