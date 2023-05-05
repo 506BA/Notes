@@ -423,6 +423,7 @@ Sometimes you’d like to attach `gdb` to a running `bitcoind` when a certai
 When I don’t know how to cause `bitcoind` to execute a particular code path that I’m interested in debugging or understanding, I’ve set one of these “spin” landmines and then run the entire functional test suite. When it seems to be hung, if I run `top` and see a `bitcoind` steady at 100% CPU, I attach to it, find the right thread, and then begin debugging. It’s a hack, but this has been helpful many times.
 
 ## 对RPC接口中的创建交易函数进行分析
+
 static RPCHelpMan createrawtransaction()
 {
     return RPCHelpMan{
@@ -456,6 +457,7 @@ lambda函数表达式的返回值类型是UniValue，它是一个类似于JSON�
 
 总之，这个lambda函数表达式的作用是解析请求中的参数，创建新的未签名交易，并将其编码为HEX字符串返回。
 */
+
         [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue
         {
             // 解析replaceable参数
