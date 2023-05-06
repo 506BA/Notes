@@ -607,3 +607,192 @@ static RPCHelpMan getblockheader()
 
 ```
 首先将string类型的hash解析为uint256,根据hash值查询BlockIndex(注意查询时要加锁，所以这段代码周围的大括号是必须的)，获取相应的blockindex指针和tip，如果verbose为false则返回16进制的blockheader序列化结果，否则返回Blockheader对象，并且以JOSN格式返回
+
+
+## gettxoutproof
+解析获取交易在区块中证明的函数
+
+- 获取交易在区块中的证据，调用此函数返回指定交易16进制编码的证明。
+- txids -- 必需参数，一个要过滤的交易ID数组json数组，
+- blockhash -- 可选参数，如果指定的话则在该块内搜索交易
+
+示例：
+> ~$ bitcoin-cli gettxoutproof \
+  '''
+    [
+      "f20e44c818ec332d95119507fbe36f1b8b735e2c387db62adbe28e50f7904683"
+    ]
+  ''' \
+  '0000000000000000140e84bf183d8d5207d65fbfae596bdf48f684d13d951847'
+
+输出如下：
+>   03000000394ab3f08f712aa0f1d26c5daa4040b50e96d31d4e8e3c130000000000000000\
+    ca89aaa0bbbfcd5d1210c7888501431256135736817100d8c2cf7e4ab9c02b168115d455\
+    04dd1418836b20a6cb0800000d3a61beb3859abf1b773d54796c83b0b937968cc4ce3c0f\
+    71f981b2407a3241cb8908f2a88ac90a2844596e6019450f507e7efb8542cbe54ea55634\
+    c87bee474ee48aced68179564290d476e16cff01b483edcd2004d555c617dfc08200c083\
+    08ba511250e459b49d6a465e1ab1d5d8005e0778359c2993236c85ec66bac4bfd974131a\
+    dc1ee0ad8b645f459164eb38325ac88f98c9607752bc1b637e16814f0d9d8c2775ac3f20\
+    f85260947929ceef16ead56fcbfd77d9dc6126cce1b5aacd9f834690f7508ee2db2ab67d\
+    382c5e738b1b6fe3fb079511952d33ec18c8440ef291eb8d3546a971ee4aa5e574b7be7f\
+    5aff0b1c989b2059ae5a611c8ce5c58e8e8476246c5e7c6b70e0065f2a6654e2e6cf4efb\
+    6ae19bf2548a7d9febf5b0aceaff28610922e1b9e23e52f650a4a11d2986c9c2b09bb168\
+    a70a7d4ac16e4d389bc2868ee91da1837d2cd79288bdc680e9c35ebb3ddfd045d69d767b\
+    164ec69d5db9f995c045d10af5bd90cd9d1116c3732e14796ef9d1a57fa7bb718c07989e\
+    d06ff359bf2009eaf1b9e000c054b87230567991b447757bc6ca8e1bb6e9816ad604dbd6\
+    0600
+
+返回RPCHelpMan的参数分别为
+- rpc函数名称
+- rpc函数描述。返回一个十六进制编码的证明，证明“txid”包含在一个块中。注意：默认情况下，此功能仅在当utxo中存在此事务的未使用输出时起作用。为了让它始终发挥作用。您需要使用-txindex命令行选项来维护事务索引，或者手动指定包含事务的块（通过blockhash）。
+- 函数参数txids与blockhash
+- RPC结果
+- RPC示例
+- lambda表达式进行编写函数体
+
+```
+//获取交易在区块中的证据，调用此函数返回指定交易16进制编码的证明。
+// txids -- 必需参数，一个要过滤的交易ID数组json数组，
+// blockhash -- 可选参数，如果指定的话则在该块内搜索交易
+static RPCHelpMan gettxoutproof()
+{
+    return RPCHelpMan{
+        // rpc函数名称
+        "gettxoutproof",
+        // rpc函数描述，返回一个十六进制编码的证明，证明“txid”包含在一个块中。注意：默认情况下，
+        //此功能仅在当utxo中存在此事务的未使用输出时起作用。为了让它始终发挥作用。您需要使用
+        //-txindex命令行选项来维护事务索引，或者手动指定包含事务的块（通过blockhash）。
+        "\nReturns a hex-encoded proof that \"txid\" was included in a block.\n"
+        "\nNOTE: By default this function only works sometimes. This is when there is an\n"
+        "unspent output in the utxo for this transaction. To make it always work,\n"
+        "you need to maintain a transaction index, using the -txindex command line option or\n"
+        "specify the block in which the transaction is included manually (by blockhash).\n",
+        //函数参数txids与blockhash
+        {
+            {
+                "txids",
+                RPCArg::Type::ARR,
+                RPCArg::Optional::NO,
+                "The txids to filter",
+                {
+                    {"txid", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "A transaction hash"},
+                },
+            },
+            {"blockhash", RPCArg::Type::STR_HEX, RPCArg::Optional::OMITTED, "If specified, looks for txid in the block with this hash"},
+        },
+        //结果
+        RPCResult{
+            RPCResult::Type::STR, "data", "A string that is a serialized, hex-encoded data for the proof."},
+        //示例为空
+        RPCExamples{""},
+        // lambda表达式进行编写函数体
+        [&](const RPCHelpMan& self, const JSONRPCRequest& request) -> UniValue {
+            // setTxids是交易ID的集合
+            std::set<uint256> setTxids;
+            // txids是交易ID数组
+            UniValue txids = request.params[0].get_array();
+
+            //如果txids交易ID数组为空，则抛出一个异常提示，参数txids不能为空
+            if (txids.empty()) {
+                throw JSONRPCError(RPC_INVALID_PARAMETER, "Parameter 'txids' cannot be empty");
+            }
+            //遍历txids数组，如果，提示异常无效参数，交易ID重复。
+            for (unsigned int idx = 0; idx < txids.size(); idx++) {
+                auto ret = setTxids.insert(ParseHashV(txids[idx], "txid"));
+                if (!ret.second) {
+                    throw JSONRPCError(RPC_INVALID_PARAMETER, std::string("Invalid parameter, duplicated txid: ") + txids[idx].get_str());
+                }
+            }
+
+            //构建一个区块索引初始化为空指针
+            const CBlockIndex* pblockindex = nullptr;
+            //声明一个哈希区块
+            uint256 hashBlock;
+            // ChainstateManager即是用来管理chainstate类的一个类，chainstate 是一个leveldb的数据库，主要存储一些
+            //  utxo 和 tx 的元数据信息。存储 chainstate 的数据主要是用来去验证新进来的 blocks 和 tx 是否是合法的。
+            //  如果没有这个操作，就意味着对于每一个被花费的 out 你都需要去进行全表扫描来验证。utxo的数据主要存储于
+            //  chainstate这个文件目录，由于要存储到leveldb中，所以肯定是按照 key、value 的格式将数据准备好。
+            ChainstateManager& chainman = EnsureAnyChainman(request.context);
+            //如果request的第二个参数不是空，即blockhash存在，
+            //则根据blockhash搜索相应区块，并在区块中查找对应的交易。
+            if (!request.params[1].isNull()) {
+                //利用c++多线程管理函数LOCK，对线程cs_main上锁
+                LOCK(cs_main);
+                //获取哈希区块
+                hashBlock = ParseHashV(request.params[1], "blockhash");
+                //根据哈希区块获取区块索引，LookupBlockIndex会调用unordered_map<uint256, CBlockIndex, BlockHasher>
+                //的find函数，找到hash对应的区块索引。
+                pblockindex = chainman.m_blockman.LookupBlockIndex(hashBlock);
+                //如果区块索引为空，则抛出异常，区块无法找到。
+                if (!pblockindex) {
+                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Block not found");
+                }
+            }
+            //否则request的第二个参数为空，即blockash不存在，
+            else {
+                //利用c++多线程管理函数LOCK，对线程cs_main上锁
+                LOCK(cs_main);
+                //获取UTXO相关的交易信息
+                Chainstate& active_chainstate = chainman.ActiveChainstate();
+                // 循环txid交易id数组并尝试找到交易id所在的块，找到块后退出循环。
+                for (const auto& tx : setTxids) {
+                    const Coin& coin = AccessByTxid(active_chainstate.CoinsTip(), tx);
+                    if (!coin.IsSpent()) {
+                        pblockindex = active_chainstate.m_chain[coin.nHeight];
+                        break;
+                    }
+                }
+            }
+
+            //如果我们需要在获取cs_main之前查询txindex，那么请允许txindex赶上。
+            if (g_txindex && !pblockindex) {
+                g_txindex->BlockUntilSyncedToCurrentChain();
+            }
+            //如果区块索引为空指针
+            if (pblockindex == nullptr) {
+                //获取交易引用，如果交易引用不为空或者哈希区块为空，则抛出交易不在区块中的异常
+                const CTransactionRef tx = GetTransaction(/*block_index=*/nullptr, /*mempool=*/nullptr, *setTxids.begin(), chainman.GetConsensus(), hashBlock);
+                if (!tx || hashBlock.IsNull()) {
+                    throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Transaction not yet in block");
+                }
+
+                LOCK(cs_main);
+                pblockindex = chainman.m_blockman.LookupBlockIndex(hashBlock);
+                //抛出交易索引错误的异常
+                if (!pblockindex) {
+                    throw JSONRPCError(RPC_INTERNAL_ERROR, "Transaction index corrupt");
+                }
+            }
+
+            //创建一个block区块，如果不能从磁盘读取区块，那么抛出一个错误
+            CBlock block;
+            if (!ReadBlockFromDisk(block, pblockindex, chainman.GetConsensus())) {
+                throw JSONRPCError(RPC_INTERNAL_ERROR, "Can't read block from disk");
+            }
+
+            unsigned int ntxFound = 0;
+            //循环计算哈希的数量，block.vtx是交易引用的数组
+            for (const auto& tx : block.vtx) {
+                if (setTxids.count(tx->GetHash())) {
+                    ntxFound++;
+                }
+            }
+            //如果计数器与预期交易ID数量不一致，则抛出一个未能在指定区块和检索区块找到所有交易的错误
+            if (ntxFound != setTxids.size()) {
+                throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "Not all transactions found in specified or retrieved block");
+            }
+
+            //构建一个缓冲区，通过>>和<<使用上述序列化模板读取和写入未格式化的数据。以线性时间填充数据；一些字符串流实现需要N^2时间。
+            DataStream ssMB{};
+            //构建一个CMerkleBlock结构，其中包含merkle认证路径， 类中包含CBlockHeader区块头信息和CPartialMerkleTree，
+            // CPartialMerkleTree顾名思义只包含merkle树中的一部分节点，也就是SPV节点需要的认证路径
+            CMerkleBlock mb(block, setTxids);
+            //将构建的CMerkleBlock写入缓冲区
+            ssMB << mb;
+            //转化成十六进制的字符串，并返回。
+            std::string strHex = HexStr(ssMB);
+            return strHex;
+        },
+    };
+}
+```

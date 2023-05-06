@@ -4,4 +4,4 @@
 
 |     日期|            预习|                                                                                  产出|      状态|
 | :----: | :-------------:| :----------------------------------------------------------------------------------:|:--------:|
-| 23/4/26|《精通比特币》前5章| 前五章总结（notes/bitcoin/msbtc.md），bitcoin core 代码分析（notes/bitcoin/analysis.md）| ✅  ❌|
+| 23/4/26|《精通比特币》前5章| 前五章总结（notes/bitcoin/msbtc.md），bitcoin core 代码分析（notes/bitcoin/analysis.md）| ✅  ✅|
