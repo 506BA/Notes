@@ -608,6 +608,7 @@ static RPCHelpMan getblockheader()
 ```
 首先将string类型的hash解析为uint256,根据hash值查询BlockIndex(注意查询时要加锁，所以这段代码周围的大括号是必须的)，获取相应的blockindex指针和tip，如果verbose为false则返回16进制的blockheader序列化结果，否则返回Blockheader对象，并且以JOSN格式返回
 
+
 ## gettxoutproof
 解析获取交易在区块中证明的函数
 
@@ -623,7 +624,7 @@ blockhash -- 可选参数，如果指定的话则在该块内搜索交易
     ]
   ''' \
   '0000000000000000140e84bf183d8d5207d65fbfae596bdf48f684d13d951847'
-
+输出如下：
 >   03000000394ab3f08f712aa0f1d26c5daa4040b50e96d31d4e8e3c130000000000000000\
     ca89aaa0bbbfcd5d1210c7888501431256135736817100d8c2cf7e4ab9c02b168115d455\
     04dd1418836b20a6cb0800000d3a61beb3859abf1b773d54796c83b0b937968cc4ce3c0f\
@@ -643,7 +644,7 @@ blockhash -- 可选参数，如果指定的话则在该块内搜索交易
 返回RPCHelpMan的参数分别为
 - rpc函数名称
 - rpc函数描述。返回一个十六进制编码的证明，证明“txid”包含在一个块中。注意：默认情况下，此功能仅在当utxo中存在此事务的未使用输出时起作用。为了让它始终发挥作用。您需要使用-txindex命令行选项来维护事务索引，或者手动指定包含事务的块（通过blockhash）。
-- //函数参数txids与blockhash
+- 函数参数txids与blockhash
 - RPC结果
 - RPC示例
 - lambda表达式进行编写函数体
@@ -730,7 +731,7 @@ static RPCHelpMan gettxoutproof()
             else {
                 //利用c++多线程管理函数LOCK，对线程cs_main上锁
                 LOCK(cs_main);
-                //获取主链的状态
+                //获取UTXO相关的交易信息
                 Chainstate& active_chainstate = chainman.ActiveChainstate();
                 // 循环txid交易id数组并尝试找到交易id所在的块，找到块后退出循环。
                 for (const auto& tx : setTxids) {
