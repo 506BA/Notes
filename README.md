@@ -1,8 +1,7 @@
-# Blockchain Notes
+# 506BA Group Meeting Notes
 
-## 计划安排
+## mdbook
+MacOS brew install mdbook  
+in notes dir `mdbook serve`   
+default port is 3000
 
-|     日期|            预习|                                                                                  产出|      状态|
-| :----: | :-------------:| :----------------------------------------------------------------------------------:|:--------:|
-| 23/4/26|《精通比特币》前5章| 前五章总结（notes/bitcoin/msbtc.md），bitcoin core 代码分析（notes/bitcoin/analysis.md）| ✅  ✅|
-| 23/5/5 |《精通比特币》后5章| 区块链基础概念（notes/basic/basic.md）| ✅ |
