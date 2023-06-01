@@ -9,3 +9,5 @@
   - [Raft 中文翻译](./consensus/raft-zh_cn.md)
   - [Raft 面试题](./consensus/raft-interview.md)
   - [ectd/raft_code](./consensus/ectd_raft_key_code.md)
+  - [Ouroboros Famliy](./consensus/ouroboros_family.md)
+  - [Minotaur](./consensus/minotaur.md)
